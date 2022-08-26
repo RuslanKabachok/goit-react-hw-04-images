@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import PropTypes from 'prop-types';
 import { FaSearch } from 'react-icons/fa';
 import {
@@ -9,9 +10,20 @@ import {
 } from './SearchBar.styled';
 
 const SearchBar = ({ onSubmit }) => {
+  const [inputValue, setInputValue] = useState('');
+
+  const handleChange = e => {
+    setInputValue(e.currentTarget.value);
+  };
+
+  const handleSubmit = e => {
+    e.preventDafault();
+    onSubmit(inputValue);
+  };
+
   return (
     <MainHeader>
-      <SearchForm onSubmit={onSubmit}>
+      <SearchForm onSubmit={handleSubmit}>
         <SearchBtn type="submit">
           <FaSearch size={20} />
           <SearchLabel>Search</SearchLabel>
@@ -21,6 +33,8 @@ const SearchBar = ({ onSubmit }) => {
           autocomplete="off"
           autoFocus
           placeholder="Search images and photos"
+          onChange={handleChange}
+          value={inputValue}
           name="search"
         />
       </SearchForm>

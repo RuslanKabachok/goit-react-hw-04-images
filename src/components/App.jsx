@@ -1,4 +1,4 @@
-import React, { Component } from 'react';
+import { useState, useEffect } from 'react';
 import { GetDataFromAPI } from 'services/Api';
 import Wrapper from './App.styled';
 import SearchBar from './SearchBar/SearchBar';
@@ -7,106 +7,86 @@ import { Modal } from './Modal/Modal';
 import { Button } from './Button/Button';
 import { Loader } from './Loader/Loader';
 
-class App extends Component {
-  state = {
-    keyWord: '',
-    images: [],
-    totalHits: 0,
-    page: 1,
-    showModal: false,
-    largeImage: '',
-    loading: false,
-    error: null,
+const App = () => {
+  const [keyWord, setKeyWord] = useState('');
+  const [images, setImages] = useState([]);
+  const [totalHits, setTotalHits] = useState(0);
+  const [page, setPage] = useState(0);
+  const [showModal, setShowModal] = useState(false);
+  const [largeImage, setLargeImage] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const onSearch = searchQuery => {
+    setKeyWord(searchQuery);
+    setPage(1);
   };
 
-  onSearch = e => {
-    e.preventDefault();
-    this.setState({ keyWord: e.target.elements.search.value });
+  const openModal = largeImageItem => {
+    setShowModal(true);
+    setLargeImage(largeImageItem);
   };
 
-  onLoadMore = () => {
-    this.setState(prevState => {
-      return { page: prevState.page + 1 };
+  const closeModal = event => {
+    if (event.target === event.currentTarget || event.code === 'Escape') {
+      setShowModal(false);
+      setLargeImage('');
+    }
+  };
+
+  const onLoadMore = () => {
+    setPage(page => page + 1);
+  };
+
+  const getDataforState = data => {
+    const dataForState = data.map(elem => {
+      return {
+        id: elem.id,
+        webformatURL: elem.webformatURL,
+        largeImageURL: elem.largeImageURL,
+      };
     });
+    return dataForState;
   };
 
-  openModal = largeImageItem => {
-    this.setState({ showModal: true, largeImage: largeImageItem });
-    window.addEventListener('keydown', this.handleKeyPress);
-  };
+  useEffect(() => {
+    async function fetchData() {
+      if (keyWord !== '') {
+        setLoading(true);
 
-  closeModal = event => {
-    if (event.target === event.currentTarget) {
-      this.setState({ showModal: false });
-    }
-  };
-
-  handleKeyPress = e => {
-    if (e.code === 'Escape') {
-      this.setState({ showModal: false });
-      window.removeEventListener('keydown', this.handleKeyPress);
-    }
-  };
-
-  async componentDidUpdate(prevProps, prevState) {
-    const searchQuery = this.state.keyWord;
-    const page = this.state.page;
-
-    if (prevState.keyWord !== searchQuery) {
-      this.setState({ loading: true });
-      try {
-        const response = await GetDataFromAPI(searchQuery, page);
-        this.setState({
-          images: [...response.hits],
-          totalHits: response.totalHits,
-        });
-      } catch (error) {
-        this.setState({ error });
-      } finally {
-        this.setState({
-          loading: false,
-        });
+        try {
+          const response = await GetDataFromAPI(keyWord, page);
+          const result = getDataforState(response.hits);
+          setImages(images => {
+            return page === 1 ? [...result] : [...images, ...result];
+          });
+          setTotalHits(response.totalHits);
+        } catch (error) {
+          setError(error);
+        } finally {
+          setLoading(false);
+        }
       }
     }
+    fetchData();
+  }, [keyWord, page]);
 
-    if (prevState.page !== page) {
-      this.setState({ loading: true });
-      try {
-        const response = await GetDataFromAPI(searchQuery, page);
-        this.setState({
-          images: [...this.state.images, ...response.hits],
-          totalHits: response.totalHits,
-        });
-      } catch (error) {
-        this.setState({ error });
-      } finally {
-        this.setState({
-          loading: false,
-        });
-      }
-    }
-  }
-
-  render() {
-    return (
-      <Wrapper>
-        <SearchBar onSubmit={this.onSearch} />
-        {this.state.images.length > 0 && (
-          <ImageGallery images={this.state.images} openModal={this.openModal} />
-        )}
-        {this.state.loading && <Loader />}
-        {this.state.images.length > 0 && this.state.totalHits > 12 && (
-          <Button loadMore={this.onLoadMore} />
-        )}
-        {this.state.showModal && (
-          <Modal
-            largeImg={this.state.largeImage}
-            closeModal={this.closeModal}
-          />
-        )}
-      </Wrapper>
-    );
-  }
-}
+  return (
+    <Wrapper>
+      <SearchBar
+        onSubmit={searchQuery => {
+          onSearch(searchQuery);
+        }}
+      />
+      {error && <p>Whoops, something went wrong: {error.message}</p>}
+      {images.length > 0 && (
+        <ImageGallery images={images} openModal={openModal} />
+      )}
+      {loading && <Loader />}
+      {images.length > 0 && totalHits > 12 && <Button loadMore={onLoadMore} />}
+      {showModal && <Modal largeImg={largeImage} closeModal={closeModal} />}
+    </Wrapper>
+  );
+};
 
 export default App;
